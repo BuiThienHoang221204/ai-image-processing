@@ -43,4 +43,4 @@ __pycache__/
 .vscode/
 .idea/
 python_worker/.vscode/
-users-service-key.pem
+ai-image-processing-key.pem
