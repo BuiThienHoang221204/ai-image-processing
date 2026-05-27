@@ -2,8 +2,8 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Cài thư viện hệ thống cho OpenCV / Pillow / AI Image Processing
-RUN apt-get update && apt-get install -y \
+# Cài thư viện hệ thống cho OpenCV / Pillow / AI Image Processing (Tối ưu hóa tránh treo và giảm size)
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     ffmpeg \
