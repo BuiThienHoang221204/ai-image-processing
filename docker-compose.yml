@@ -13,6 +13,10 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - OPENROUTER_MODEL=google/gemini-2.0-flash-001
       - PYTHON_BG_REMOVAL_URL=http://python-worker:8000/remove-bg
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
     volumes:
       - ./public:/usr/src/app/public
     depends_on:
