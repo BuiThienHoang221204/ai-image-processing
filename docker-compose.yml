@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=google/gemini-2.0-flash-001
+      - PYTHON_BG_REMOVAL_URL=http://python-worker:8000/remove-bg
+    volumes:
+      - ./public:/usr/src/app/public
+    depends_on:
+      - python-worker
+    networks:
+      - pipeline-network
+
+  python-worker:
+    build:
+      context: ./python_worker
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    # Lưu cache của PyTorch (LaMa model) và U2Net ONNX vào thư mục máy chủ vật lý để tránh tải lại mỗi lần restart container
+    volumes:
+      - torch-cache:/root/.cache
+      - u2net-cache:/root/.u2net
+    environment:
+      - CUDA_VISIBLE_DEVICES=""
+    networks:
+      - pipeline-network
+
+volumes:
+  torch-cache:
+  u2net-cache:
+
+networks:
+  pipeline-network:
+    driver: bridge

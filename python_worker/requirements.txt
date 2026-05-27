@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+rembg[gpu]
+python-multipart
+Pillow
+opencv-python
+simple-lama-inpainting
+torch

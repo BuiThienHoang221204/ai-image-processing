@@ -1,0 +1,46 @@
+# dependency directories
+node_modules/
+python_worker/venv/
+python_worker/venv/*
+python_worker/.venv/
+
+# build directories
+dist/
+build/
+coverage/
+
+# local env files
+.env
+.env.local
+.env.*.local
+
+# log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# temp processed files & uploads (avoid committing test images)
+public/temp/*
+public/uploads/*
+!public/temp/.gitkeep
+!public/uploads/.gitkeep
+
+# Python cache/artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# local editor files
+.vscode/
+.idea/
+python_worker/.vscode/
+users-service-key.pem
