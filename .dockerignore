@@ -1,0 +1,27 @@
+# Dependency directories
+node_modules
+python_worker/venv
+python_worker/.venv
+
+# Build directories
+dist
+build
+coverage
+
+# Local env files
+.env
+.env.local
+.env.*.local
+users-service-key.pem
+
+# Git files
+.git
+.gitignore
+.github
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md

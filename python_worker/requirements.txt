@@ -1,8 +1,8 @@
 fastapi
 uvicorn
-rembg[gpu]
+rembg
 python-multipart
 Pillow
-opencv-python
+opencv-python-headless
 simple-lama-inpainting
 torch

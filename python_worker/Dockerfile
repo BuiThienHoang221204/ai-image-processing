@@ -17,7 +17,10 @@ RUN pip install --upgrade pip
 # Copy requirements
 COPY requirements.txt .
 
-# Cài dependencies Python
+# Cài đặt trước PyTorch bản CPU-only siêu nhẹ (~170MB thay vì 2.6GB bản CUDA mặc định)
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Cài các dependencies còn lại
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code

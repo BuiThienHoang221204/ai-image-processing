@@ -25,7 +25,9 @@ lerna-debug.log*
 Thumbs.db
 
 # temp processed files & uploads (avoid committing test images)
+public/temp/*
 !public/temp/.gitkeep
+public/uploads/*
 !public/uploads/.gitkeep
 
 # Python cache/artifacts
