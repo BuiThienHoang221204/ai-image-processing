@@ -46,6 +46,7 @@ async def load_model():
     try:
         # pyrefly: ignore [missing-import]
         import torch
+        torch.set_num_threads(1)
         
         # Vá lỗi (Monkey-patch) thư viện simple-lama-inpainting: 
         # Thư viện này mặc định gọi torch.jit.load mà không có map_location='cpu',
@@ -158,8 +159,28 @@ async def inpaint(image: UploadFile = File(...), mask: UploadFile = File(...)):
                 img_pil = Image.fromarray(img_rgb)
                 mask_pil = Image.fromarray(mask_img)
 
+                # Tối ưu hóa bộ nhớ: Tự động downscale ảnh nếu vượt quá 1024px để tránh OOM trên máy chủ cấu hình yếu
+                original_width, original_height = img_pil.size
+                max_size = 1024
+                is_resized = False
+                
+                if max(original_width, original_height) > max_size:
+                    logger.info(f"[rembg-worker] Ảnh quá lớn ({original_width}x{original_height}). Tự động resize xuống max {max_size}px để tránh crash RAM...")
+                    ratio = max_size / max(original_width, original_height)
+                    new_width = int(original_width * ratio)
+                    new_height = int(original_height * ratio)
+                    
+                    img_pil = img_pil.resize((new_width, new_height), Image.LANCZOS)
+                    mask_pil = mask_pil.resize((new_width, new_height), Image.NEAREST)
+                    is_resized = True
+
                 # Chạy mô hình sinh ảnh lấp đầy vùng trống
                 result_pil = SIMPLE_LAMA(img_pil, mask_pil)
+
+                # Nếu đã resize thì khôi phục lại kích thước gốc để đảm bảo chất lượng ảnh cho người dùng
+                if is_resized:
+                    logger.info(f"[rembg-worker] Khôi phục kích thước ảnh gốc ({original_width}x{original_height})...")
+                    result_pil = result_pil.resize((original_width, original_height), Image.LANCZOS)
 
                 # Chuyển đổi ngược từ Pillow về numpy array để encode
                 result_np = np.array(result_pil)
