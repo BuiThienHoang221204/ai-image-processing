@@ -3,6 +3,7 @@ import { PipelineContext } from '../pipeline.context';
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import FormData from 'form-data';
+import sharp from 'sharp';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -24,10 +25,42 @@ export class LocalRembgFilter implements IFilter {
       );
     }
 
+    // Đọc kích thước ảnh gốc
+    const metadata = await sharp(inputPath).metadata();
+    const origWidth = metadata.width || 1024;
+    const origHeight = metadata.height || 1024;
+    const maxDimension = Math.max(origWidth, origHeight);
+    const maxAllowed = 1024;
+
+    let processingInputPath = inputPath;
+    let isResized = false;
+
     // Đảm bảo thư mục lưu kết quả tồn tại
     const outputDir = path.join(process.cwd(), 'public', 'temp');
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    if (maxDimension > maxAllowed) {
+      this.logger.log(
+        `[LocalRembgFilter] Ảnh gốc lớn (${origWidth}x${origHeight}). Tự động resize xuống max ${maxAllowed}px trước khi tách nền để tránh sập RAM EC2...`,
+      );
+      const tempResizedPath = path.join(
+        outputDir,
+        `temp_resize_rembg_${context.id}_${Date.now()}.jpg`,
+      );
+
+      const ratio = maxAllowed / maxDimension;
+      const targetWidth = Math.round(origWidth * ratio);
+      const targetHeight = Math.round(origHeight * ratio);
+
+      await sharp(inputPath)
+        .resize(targetWidth, targetHeight)
+        .toFile(tempResizedPath);
+
+      context.tempFiles.push(tempResizedPath);
+      processingInputPath = tempResizedPath;
+      isResized = true;
     }
 
     const outputPath = path.join(
@@ -54,10 +87,10 @@ export class LocalRembgFilter implements IFilter {
       }
 
       // Đọc file ảnh và tạo FormData để gửi sang Python Worker
-      const fileBuffer = fs.readFileSync(inputPath);
+      const fileBuffer = fs.readFileSync(processingInputPath);
       const formData = new FormData();
       formData.append('image', fileBuffer, {
-        filename: path.basename(inputPath),
+        filename: path.basename(processingInputPath),
         contentType: 'image/jpeg',
       });
 
@@ -74,8 +107,17 @@ export class LocalRembgFilter implements IFilter {
         timeout: 120000, // 2 phút timeout để AI xử lý
       });
 
-      // Ghi ảnh PNG trong suốt vào thư mục temp
-      fs.writeFileSync(outputPath, Buffer.from(response.data as ArrayBuffer));
+      // Ghi ảnh PNG trong suốt vào thư mục temp (Khôi phục kích thước nếu đã resize)
+      if (isResized) {
+        this.logger.log(
+          `[LocalRembgFilter] Tách nền hoàn tất. Đang phục hồi kích thước ảnh về gốc (${origWidth}x${origHeight})...`,
+        );
+        await sharp(Buffer.from(response.data as ArrayBuffer))
+          .resize(origWidth, origHeight, { fit: 'fill' })
+          .toFile(outputPath);
+      } else {
+        fs.writeFileSync(outputPath, Buffer.from(response.data as ArrayBuffer));
+      }
       context.tempFiles.push(outputPath);
 
       this.logger.log(

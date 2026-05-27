@@ -66,12 +66,39 @@ export class LocalInpaintFilter implements IFilter {
       'http://localhost:8000/inpaint';
 
     try {
-      // 2. Tạo hình ảnh Mask (Mặt nạ) dựa trên Bounding Box bằng Sharp
+      // 2. Tự động resize ảnh gốc nếu ảnh quá lớn để bảo vệ RAM của AI Worker
       const metadata = await sharp(inputPath).metadata();
-      const width = metadata.width || 1024;
-      const height = metadata.height || 1024;
+      const origWidth = metadata.width || 1024;
+      const origHeight = metadata.height || 1024;
+      const maxDimension = Math.max(origWidth, origHeight);
+      const maxAllowed = 1024;
 
-      // Chuyển đổi tọa độ tương đối (0..1000) sang pixel tuyệt đối
+      let width = origWidth;
+      let height = origHeight;
+      let isResized = false;
+      let processingInputPath = inputPath;
+
+      if (maxDimension > maxAllowed) {
+        this.logger.log(
+          `[LocalInpaintFilter] Ảnh gốc lớn (${origWidth}x${origHeight}). Tự động resize xuống max ${maxAllowed}px trước khi inpaint để tránh sập RAM EC2...`,
+        );
+        const tempResizedPath = path.join(
+          outputDir,
+          `temp_resize_inpaint_${context.id}_${Date.now()}.jpg`,
+        );
+
+        const ratio = maxAllowed / maxDimension;
+        width = Math.round(origWidth * ratio);
+        height = Math.round(origHeight * ratio);
+
+        await sharp(inputPath).resize(width, height).toFile(tempResizedPath);
+
+        context.tempFiles.push(tempResizedPath);
+        processingInputPath = tempResizedPath;
+        isResized = true;
+      }
+
+      // Chuyển đổi tọa độ tương đối (0..1000) sang pixel tuyệt đối theo kích thước xử lý thực tế
       const yMinPx = Math.round((box[0] / 1000) * height);
       const xMinPx = Math.round((box[1] / 1000) * width);
       const yMaxPx = Math.round((box[2] / 1000) * height);
@@ -100,13 +127,13 @@ export class LocalInpaintFilter implements IFilter {
         `[LocalInpaintFilter] Mask đã được tạo thành công tại: ${maskPath}`,
       );
 
-      // 3. Đọc dữ liệu ảnh gốc và mask làm FormData để gửi qua Python Worker
-      const imgBuffer = fs.readFileSync(inputPath);
+      // 3. Đọc dữ liệu ảnh gốc (đã resize nếu cần) và mask làm FormData để gửi qua Python Worker
+      const imgBuffer = fs.readFileSync(processingInputPath);
       const maskBuffer = fs.readFileSync(maskPath);
 
       const formData = new FormData();
       formData.append('image', imgBuffer, {
-        filename: path.basename(inputPath),
+        filename: path.basename(processingInputPath),
         contentType: 'image/jpeg',
       });
       formData.append('mask', maskBuffer, {
@@ -127,8 +154,17 @@ export class LocalInpaintFilter implements IFilter {
         timeout: 120000, // 2 phút
       });
 
-      // Lưu kết quả nhận về vào file outputPath
-      fs.writeFileSync(outputPath, Buffer.from(response.data as ArrayBuffer));
+      // Lưu kết quả nhận về vào file outputPath (Khôi phục kích thước nếu đã resize)
+      if (isResized) {
+        this.logger.log(
+          `[LocalInpaintFilter] Inpaint hoàn tất. Đang khôi phục kích thước ảnh về gốc (${origWidth}x${origHeight})...`,
+        );
+        await sharp(Buffer.from(response.data as ArrayBuffer))
+          .resize(origWidth, origHeight, { fit: 'fill' })
+          .toFile(outputPath);
+      } else {
+        fs.writeFileSync(outputPath, Buffer.from(response.data as ArrayBuffer));
+      }
       context.tempFiles.push(outputPath);
 
       this.logger.log(
