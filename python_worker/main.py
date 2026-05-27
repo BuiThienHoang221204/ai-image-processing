@@ -159,9 +159,9 @@ async def inpaint(image: UploadFile = File(...), mask: UploadFile = File(...)):
                 img_pil = Image.fromarray(img_rgb)
                 mask_pil = Image.fromarray(mask_img)
 
-                # Tối ưu hóa bộ nhớ: Tự động downscale ảnh nếu vượt quá 1024px để tránh OOM trên máy chủ cấu hình yếu
+                # Tối ưu hóa bộ nhớ: Tự động downscale ảnh nếu vượt quá 512px để tránh OOM trên máy chủ cấu hình yếu
                 original_width, original_height = img_pil.size
-                max_size = 1024
+                max_size = 512
                 is_resized = False
                 
                 if max(original_width, original_height) > max_size:

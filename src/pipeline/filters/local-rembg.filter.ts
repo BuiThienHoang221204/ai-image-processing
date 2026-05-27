@@ -30,7 +30,7 @@ export class LocalRembgFilter implements IFilter {
     const origWidth = metadata.width || 1024;
     const origHeight = metadata.height || 1024;
     const maxDimension = Math.max(origWidth, origHeight);
-    const maxAllowed = 1024;
+    const maxAllowed = 512;
 
     let processingInputPath = inputPath;
     let isResized = false;
