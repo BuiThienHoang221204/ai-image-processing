@@ -2,25 +2,34 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Cài đặt các thư viện hệ thống cần thiết cho OpenCV hoạt động trên Linux
+# Cài thư viện hệ thống cho OpenCV / Pillow / AI Image Processing
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements và cài đặt dependencies Python
+# Upgrade pip trước
+RUN pip install --upgrade pip
+
+# Copy requirements
 COPY requirements.txt .
+
+# Cài dependencies Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy toàn bộ mã nguồn python worker
+# Copy source code
 COPY . .
 
-# Mở cổng 8000 của FastAPI
+# Expose FastAPI port
 EXPOSE 8000
 
-# Thiết lập biến môi trường chạy thuần CPU và tắt log đệm
+# Force CPU mode
 ENV PYTHONUNBUFFERED=1
 ENV CUDA_VISIBLE_DEVICES=""
+ENV PYTORCH_ENABLE_MPS_FALLBACK=1
 
-# Khởi chạy FastAPI app
+# Start FastAPI
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
