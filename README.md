@@ -60,7 +60,7 @@ ai-image-processing/
 ### 2. Khởi chạy NestJS Gateway Backend
 * Tạo file `.env` tại thư mục gốc của NestJS:
 ```env
-PORT=3001
+PORT=3002
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 OPENROUTER_MODEL=google/gemini-2.0-flash-001
 PYTHON_BG_REMOVAL_URL=http://localhost:8000/remove-bg
@@ -75,8 +75,8 @@ npm run start:dev
 ```
 
 Sau khi chạy thành công, truy cập các địa chỉ sau:
-* **Swagger API Docs**: [http://localhost:3001/docs](http://localhost:3001/docs)
-* **REST API Public URL**: [http://localhost:3001](http://localhost:3001)
+* **Swagger API Docs**: [http://localhost:3002/docs](http://localhost:3002/docs)
+* **REST API Public URL**: [http://localhost:3002](http://localhost:3002)
 
 ---
 

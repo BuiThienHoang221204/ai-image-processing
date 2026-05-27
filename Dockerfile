@@ -22,9 +22,9 @@ COPY --from=builder /usr/src/app/dist ./dist
 # Sao chép các file cấu hình và tài nguyên
 COPY --from=builder /usr/src/app/public ./public
 
-EXPOSE 3001
+EXPOSE 3002
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV PORT=3002
 
 CMD ["node", "dist/main"]

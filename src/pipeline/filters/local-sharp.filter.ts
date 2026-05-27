@@ -112,6 +112,7 @@ export class LocalSharpFilter implements IFilter {
 
       // Thực thi và lưu kết quả xuống đĩa cứng
       await imagePipeline.toFile(outputPath);
+      context.tempFiles.push(outputPath);
 
       // Cập nhật đường dẫn hình ảnh hiện tại trong context
       context.currentImageUrl = outputPath;

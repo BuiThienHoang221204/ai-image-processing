@@ -76,6 +76,7 @@ export class LocalRembgFilter implements IFilter {
 
       // Ghi ảnh PNG trong suốt vào thư mục temp
       fs.writeFileSync(outputPath, Buffer.from(response.data as ArrayBuffer));
+      context.tempFiles.push(outputPath);
 
       this.logger.log(
         `[LocalRembgFilter] Tách nền thành công bằng AI U2Net! File lưu tại: ${outputPath}`,

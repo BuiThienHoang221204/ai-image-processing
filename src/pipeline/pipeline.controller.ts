@@ -28,6 +28,7 @@ import { LocalRembgFilter } from './filters/local-rembg.filter';
 import { LocalSharpFilter } from './filters/local-sharp.filter';
 import { LocalInpaintFilter } from './filters/local-inpaint.filter';
 import { IFilter } from './interfaces/filter.interface';
+import { StorageService } from './services/storage.service';
 
 // Cấu hình Multer lưu file tạm thời
 const storageOptions = diskStorage({
@@ -56,6 +57,7 @@ export class PipelineController {
     private readonly localInpaintFilter: LocalInpaintFilter,
     private readonly localRembgFilter: LocalRembgFilter,
     private readonly localSharpFilter: LocalSharpFilter,
+    private readonly storageService: StorageService,
   ) {}
 
   @Post('remove-object')
@@ -106,17 +108,42 @@ export class PipelineController {
 
     try {
       const resultContext = await this.processor.run(context, filterChain);
-      const relativePath = path
-        .relative(process.cwd(), resultContext.currentImageUrl)
-        .replace(/\\/g, '/');
+
+      // Đăng ký file raw upload vào danh sách file tạm để tự động dọn dẹp
+      resultContext.tempFiles.push(file.path);
+
+      // Đẩy ảnh thành phẩm lên AWS S3 (hoặc trả về local path nếu dùng Fallback)
+      const finalImageUrl = await this.storageService.uploadFile(
+        resultContext.currentImageUrl,
+        'optimized',
+      );
+
+      // Dọn dẹp toàn bộ file tạm cục bộ trên EC2 (chỉ thực thi nếu S3 đang chạy)
+      await this.storageService.cleanLocalFiles(resultContext.tempFiles);
+
       return {
         success: true,
-        imageUrl: `/${relativePath}`,
+        imageUrl: finalImageUrl,
         processingTime: `${resultContext.getElapsedTime()}ms`,
         steps: resultContext.steps,
         metadata: resultContext.metadata,
       };
     } catch (error: unknown) {
+      // Đảm bảo dọn dẹp file tạm kể cả khi gặp lỗi
+      try {
+        await this.storageService.cleanLocalFiles([
+          file.path,
+          context.currentImageUrl,
+          ...context.tempFiles,
+        ]);
+      } catch (cleanupError: unknown) {
+        const msg =
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : String(cleanupError);
+        this.logger.debug(`Không thể dọn dẹp sớm file tạm: ${msg}`);
+      }
+
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(`Lỗi thực thi Pipeline 1: ${err.message}`);
       throw new BadRequestException(
@@ -177,17 +204,42 @@ export class PipelineController {
 
     try {
       const resultContext = await this.processor.run(context, filterChain);
-      const relativePath = path
-        .relative(process.cwd(), resultContext.currentImageUrl)
-        .replace(/\\/g, '/');
+
+      // Đăng ký file raw upload vào danh sách file tạm để tự động dọn dẹp
+      resultContext.tempFiles.push(file.path);
+
+      // Đẩy ảnh thành phẩm lên AWS S3 (hoặc trả về local path nếu dùng Fallback)
+      const finalImageUrl = await this.storageService.uploadFile(
+        resultContext.currentImageUrl,
+        'optimized',
+      );
+
+      // Dọn dẹp toàn bộ file tạm cục bộ trên EC2 (chỉ thực thi nếu S3 đang chạy)
+      await this.storageService.cleanLocalFiles(resultContext.tempFiles);
+
       return {
         success: true,
-        imageUrl: `/${relativePath}`,
+        imageUrl: finalImageUrl,
         processingTime: `${resultContext.getElapsedTime()}ms`,
         steps: resultContext.steps,
         metadata: resultContext.metadata,
       };
     } catch (error: unknown) {
+      // Đảm bảo dọn dẹp file tạm kể cả khi gặp lỗi
+      try {
+        await this.storageService.cleanLocalFiles([
+          file.path,
+          context.currentImageUrl,
+          ...context.tempFiles,
+        ]);
+      } catch (cleanupError: unknown) {
+        const msg =
+          cleanupError instanceof Error
+            ? cleanupError.message
+            : String(cleanupError);
+        this.logger.debug(`Không thể dọn dẹp sớm file tạm: ${msg}`);
+      }
+
       const err = error instanceof Error ? error : new Error(String(error));
       this.logger.error(`Lỗi thực thi Pipeline 2: ${err.message}`);
       throw new BadRequestException(

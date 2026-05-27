@@ -1,12 +1,12 @@
 # 🧪 MẪU KIỂM THỬ 2 PIPELINE XỬ LÝ ẢNH
 ## AI Image Processing Pipeline Service
 
-Tài liệu này cung cấp các mẫu dữ liệu đầu vào (Payloads), các chuỗi cấu hình JSON cho trường `options` và lệnh cURL tương ứng được tối ưu cho **Cổng 3001** và tài liệu Swagger tại **`http://localhost:3001/docs`**.
+Tài liệu này cung cấp các mẫu dữ liệu đầu vào (Payloads), các chuỗi cấu hình JSON cho trường `options` và lệnh cURL tương ứng được tối ưu cho **Cổng 3002** và tài liệu Swagger tại **`http://localhost:3002/docs`**.
 
 ---
 
 ## 🌀 PIPELINE 1: REMOVE OBJECT FROM IMAGE (Xóa Vật Thể)
-* **Endpoint**: `POST http://localhost:3001/pipeline/remove-object`
+* **Endpoint**: `POST http://localhost:3002/pipeline/remove-object`
 * **Content-Type**: `multipart/form-data`
 
 ### 📋 Tham số yêu cầu:
@@ -47,7 +47,7 @@ Tài liệu này cung cấp các mẫu dữ liệu đầu vào (Payloads), các 
 
 ### 💻 Lệnh cURL chạy thử Pipeline 1:
 ```bash
-curl -X POST "http://localhost:3001/pipeline/remove-object" \
+curl -X POST "http://localhost:3002/pipeline/remove-object" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
   -F "image=@D:/images/sample-photo.jpg" \
@@ -58,7 +58,7 @@ curl -X POST "http://localhost:3001/pipeline/remove-object" \
 ---
 
 ## 🛍️ PIPELINE 2: PRODUCT ENHANCE (Tối Ưu Ảnh E-Commerce)
-* **Endpoint**: `POST http://localhost:3001/pipeline/product-enhance`
+* **Endpoint**: `POST http://localhost:3002/pipeline/product-enhance`
 * **Content-Type**: `multipart/form-data`
 
 ### 📋 Tham số yêu cầu:
@@ -120,7 +120,7 @@ curl -X POST "http://localhost:3001/pipeline/remove-object" \
 
 ### 💻 Lệnh cURL chạy thử Pipeline 2:
 ```bash
-curl -X POST "http://localhost:3001/pipeline/product-enhance" \
+curl -X POST "http://localhost:3002/pipeline/product-enhance" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
   -F "image=@D:/images/product-raw.png" \
@@ -136,7 +136,7 @@ Nếu bạn muốn sử dụng **Postman** thay cho Swagger:
 
 1. **Khởi tạo Request**:
    * Phương thức: **`POST`**
-   * Địa chỉ URL: `http://localhost:3001/pipeline/remove-object` hoặc `http://localhost:3001/pipeline/product-enhance`
+   * Địa chỉ URL: `http://localhost:3002/pipeline/remove-object` hoặc `http://localhost:3002/pipeline/product-enhance`
 2. **Cấu hình thẻ Headers**:
    * Thêm Header: `Accept` = `application/json`
    * *Không cần thêm Content-Type vì Postman sẽ tự động sinh khi chọn form-data.*

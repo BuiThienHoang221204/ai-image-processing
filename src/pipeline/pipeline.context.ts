@@ -16,6 +16,7 @@ export class PipelineContext {
   public steps: PipelineStepLog[] = [];
   public metadata: Record<string, Record<string, unknown>> = {};
   public startTime: number;
+  public readonly tempFiles: string[] = [];
 
   constructor(
     originalImageUrl: string,

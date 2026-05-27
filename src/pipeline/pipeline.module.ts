@@ -5,6 +5,7 @@ import { LocalRembgFilter } from './filters/local-rembg.filter';
 import { LocalSharpFilter } from './filters/local-sharp.filter';
 import { OpenRouterDetectFilter } from './filters/openrouter-detect.filter';
 import { LocalInpaintFilter } from './filters/local-inpaint.filter';
+import { StorageService } from './services/storage.service';
 
 @Module({
   controllers: [PipelineController],
@@ -14,7 +15,8 @@ import { LocalInpaintFilter } from './filters/local-inpaint.filter';
     LocalInpaintFilter,
     LocalRembgFilter,
     LocalSharpFilter,
+    StorageService,
   ],
-  exports: [PipelineProcessor],
+  exports: [PipelineProcessor, StorageService],
 })
 export class PipelineModule {}

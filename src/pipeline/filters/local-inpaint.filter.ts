@@ -94,6 +94,7 @@ export class LocalInpaintFilter implements IFilter {
 
       // Lưu file mask PNG
       await sharp(Buffer.from(svgMask)).png().toFile(maskPath);
+      context.tempFiles.push(maskPath);
 
       this.logger.log(
         `[LocalInpaintFilter] Mask đã được tạo thành công tại: ${maskPath}`,
@@ -128,6 +129,7 @@ export class LocalInpaintFilter implements IFilter {
 
       // Lưu kết quả nhận về vào file outputPath
       fs.writeFileSync(outputPath, Buffer.from(response.data as ArrayBuffer));
+      context.tempFiles.push(outputPath);
 
       this.logger.log(
         `[LocalInpaintFilter] Inpainting local thành công! File lưu tại: ${outputPath}`,
