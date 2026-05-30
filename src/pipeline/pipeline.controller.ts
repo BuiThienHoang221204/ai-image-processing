@@ -1,24 +1,13 @@
 import {
   Controller,
   Post,
-  UseInterceptors,
-  UploadedFile,
   Body,
   BadRequestException,
   HttpCode,
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import {
-  ApiConsumes,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-import { diskStorage } from 'multer';
-import * as path from 'path';
-import * as fs from 'fs';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RemoveObjectDto } from './dto/remove-object.dto';
 import { ProductEnhanceDto } from './dto/product-enhance.dto';
 import { PipelineProcessor } from './pipeline.processor';
@@ -29,22 +18,7 @@ import { LocalSharpFilter } from './filters/local-sharp.filter';
 import { LocalInpaintFilter } from './filters/local-inpaint.filter';
 import { IFilter } from './interfaces/filter.interface';
 import { StorageService } from './services/storage.service';
-
-// Cấu hình Multer lưu file tạm thời
-const storageOptions = diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}_${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `upload_${uniqueSuffix}${ext}`);
-  },
-});
+import { S3DownloaderService } from './services/s3-downloader.service';
 
 @ApiTags('AI Image Processing Pipeline')
 @Controller('pipeline')
@@ -58,30 +32,34 @@ export class PipelineController {
     private readonly localRembgFilter: LocalRembgFilter,
     private readonly localSharpFilter: LocalSharpFilter,
     private readonly storageService: StorageService,
+    private readonly s3Downloader: S3DownloaderService,
   ) {}
 
   @Post('remove-object')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('image', { storage: storageOptions }))
-  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
       'Pipeline 1: Xóa đối tượng khỏi ảnh bằng AI định vị và inpainting local (OpenCV Telea)',
   })
   @ApiResponse({ status: 200, description: 'Xử lý thành công' })
-  async removeObject(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: RemoveObjectDto,
-  ) {
-    if (!file) {
-      throw new BadRequestException(
-        'Vui lòng upload một hình ảnh hợp lệ (image).',
-      );
+  async removeObject(@Body() body: RemoveObjectDto) {
+    if (!body.imageUrl) {
+      throw new BadRequestException('Vui lòng cung cấp imageUrl từ S3.');
     }
 
     this.logger.log(
-      `[POST /pipeline/remove-object] Tiếp nhận file: ${file.filename}`,
+      `[POST /pipeline/remove-object] Tiếp nhận URL: ${body.imageUrl}`,
     );
+
+    // Tải ảnh từ S3 về local
+    let localImagePath: string;
+    try {
+      localImagePath = await this.s3Downloader.download(body.imageUrl);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Không thể tải ảnh từ URL';
+      throw new BadRequestException(msg);
+    }
 
     const optionsStr = body.options;
     const promptStr = body.prompt ?? '';
@@ -97,7 +75,11 @@ export class PipelineController {
       }
     }
 
-    const context = new PipelineContext(file.path, promptStr, extraOptions);
+    const context = new PipelineContext(
+      localImagePath,
+      promptStr,
+      extraOptions,
+    );
 
     // Pipeline 1: Detect Object (Gemini) -> Local Inpaint/Remove (Python OpenCV) -> Enhance (Sharp)
     const filterChain = [
@@ -110,7 +92,7 @@ export class PipelineController {
       const resultContext = await this.processor.run(context, filterChain);
 
       // Đăng ký file raw upload vào danh sách file tạm để tự động dọn dẹp
-      resultContext.tempFiles.push(file.path);
+      resultContext.tempFiles.push(localImagePath);
 
       // Đẩy ảnh thành phẩm lên AWS S3 (hoặc trả về local path nếu dùng Fallback)
       const finalImageUrl = await this.storageService.uploadFile(
@@ -132,7 +114,7 @@ export class PipelineController {
       // Đảm bảo dọn dẹp file tạm kể cả khi gặp lỗi
       try {
         await this.storageService.cleanLocalFiles([
-          file.path,
+          localImagePath,
           context.currentImageUrl,
           ...context.tempFiles,
         ]);
@@ -154,26 +136,29 @@ export class PipelineController {
 
   @Post('product-enhance')
   @HttpCode(HttpStatus.OK)
-  @UseInterceptors(FileInterceptor('image', { storage: storageOptions }))
-  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
       'Pipeline 2: Tối ưu hóa ảnh e-commerce (tách nền AI local, crop, sharpen, add background)',
   })
   @ApiResponse({ status: 200, description: 'Xử lý thành công' })
-  async productEnhance(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() body: ProductEnhanceDto,
-  ) {
-    if (!file) {
-      throw new BadRequestException(
-        'Vui lòng upload một hình ảnh hợp lệ (image).',
-      );
+  async productEnhance(@Body() body: ProductEnhanceDto) {
+    if (!body.imageUrl) {
+      throw new BadRequestException('Vui lòng cung cấp imageUrl từ S3.');
     }
 
     this.logger.log(
-      `[POST /pipeline/product-enhance] Tiếp nhận file: ${file.filename}`,
+      `[POST /pipeline/product-enhance] Tiếp nhận URL S3: ${body.imageUrl}`,
     );
+
+    // Tải ảnh từ S3 về local
+    let localImagePath: string;
+    try {
+      localImagePath = await this.s3Downloader.download(body.imageUrl);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Không thể tải ảnh từ URL';
+      throw new BadRequestException(msg);
+    }
 
     const optionsStr = body.options;
     const backgroundColorStr = body.backgroundColor ?? 'white';
@@ -194,7 +179,11 @@ export class PipelineController {
     if (extraOptions['crop'] === undefined) extraOptions['crop'] = true;
     if (extraOptions['sharpen'] === undefined) extraOptions['sharpen'] = true;
 
-    const context = new PipelineContext(file.path, undefined, extraOptions);
+    const context = new PipelineContext(
+      localImagePath,
+      undefined,
+      extraOptions,
+    );
 
     // Pipeline 2: LocalRembg (Python AI U2Net) -> Sharp (Crop/Sharpen/Background)
     const filterChain = [
@@ -206,7 +195,7 @@ export class PipelineController {
       const resultContext = await this.processor.run(context, filterChain);
 
       // Đăng ký file raw upload vào danh sách file tạm để tự động dọn dẹp
-      resultContext.tempFiles.push(file.path);
+      resultContext.tempFiles.push(localImagePath);
 
       // Đẩy ảnh thành phẩm lên AWS S3 (hoặc trả về local path nếu dùng Fallback)
       const finalImageUrl = await this.storageService.uploadFile(
@@ -228,7 +217,7 @@ export class PipelineController {
       // Đảm bảo dọn dẹp file tạm kể cả khi gặp lỗi
       try {
         await this.storageService.cleanLocalFiles([
-          file.path,
+          localImagePath,
           context.currentImageUrl,
           ...context.tempFiles,
         ]);

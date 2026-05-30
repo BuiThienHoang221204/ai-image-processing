@@ -6,6 +6,7 @@ import { LocalSharpFilter } from './filters/local-sharp.filter';
 import { OpenRouterDetectFilter } from './filters/openrouter-detect.filter';
 import { LocalInpaintFilter } from './filters/local-inpaint.filter';
 import { StorageService } from './services/storage.service';
+import { S3DownloaderService } from './services/s3-downloader.service';
 
 @Module({
   controllers: [PipelineController],
@@ -16,7 +17,8 @@ import { StorageService } from './services/storage.service';
     LocalRembgFilter,
     LocalSharpFilter,
     StorageService,
+    S3DownloaderService,
   ],
-  exports: [PipelineProcessor, StorageService],
+  exports: [PipelineProcessor, StorageService, S3DownloaderService],
 })
 export class PipelineModule {}

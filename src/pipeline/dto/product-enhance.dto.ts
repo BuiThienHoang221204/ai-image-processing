@@ -1,14 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsNotEmpty } from 'class-validator';
 
 export class ProductEnhanceDto {
   @ApiProperty({
     type: 'string',
-    format: 'binary',
-    description: 'File ảnh sản phẩm đầu vào (PNG, JPG, WebP)',
+    description: 'URL của ảnh đã được đẩy lên S3 trước',
   })
-  @IsOptional()
-  image: Express.Multer.File;
+  @IsString()
+  @IsNotEmpty()
+  imageUrl: string;
 
   @ApiProperty({
     example: 'white',
