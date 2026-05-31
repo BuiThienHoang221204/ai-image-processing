@@ -57,9 +57,22 @@ export class OpenRouterDetectFilter implements IFilter {
               content: [
                 {
                   type: 'text',
-                  text: `Bạn là trợ lý AI xử lý ảnh. Hãy định vị vật thể "${context.prompt}" trong bức ảnh này.
-Hãy trả về chính xác một mảng tọa độ Bounding Box dưới dạng JSON [ymin, xmin, ymax, xmax] trong khoảng tỉ lệ từ 0 đến 1000 đại diện cho góc trên bên trái đến góc dưới bên phải.
-Ví dụ: [150, 200, 800, 900]. Chỉ trả về duy nhất mảng JSON đó trong thẻ markdown hoặc văn bản thuần, không thêm lời giải thích nào khác.`,
+                  text: `You are an expert AI image editor. The user wants to remove/edit an object from the provided image.
+Here is the user's editing instruction/prompt: "${context.prompt}"
+
+Your task:
+1. Analyze the user's instruction and identify:
+   - What specific object(s), area(s), or element(s) they want to REMOVE or DELETE (the target).
+   - What elements they explicitly want to KEEP or PRESERVE unchanged.
+2. Locate the REMOVE target object in the image.
+3. Return the exact Bounding Box of the target object to be deleted.
+   - The coordinates must be a JSON array [ymin, xmin, ymax, xmax] normalized in the range 0 to 1000 (0 represents top/left, 1000 represents bottom/right).
+   - The box must cover the ENTIRE target object to be deleted (including its shadows, trunk, branches, leaves, or any associated parts).
+   - Do NOT include the area of elements that the user wants to KEEP.
+   - Make sure the bounding box covers the target object fully to avoid leaving any floating cutoffs or artifacts.
+
+Return ONLY the JSON array [ymin, xmin, ymax, xmax] in plain text or markdown block, with absolutely no other text, comments, or explanations.
+Example output format: [100, 200, 900, 800]`,
                 },
                 {
                   type: 'image_url',
@@ -138,7 +151,7 @@ Ví dụ: [150, 200, 800, 900]. Chỉ trả về duy nhất mảng JSON đó tro
       );
 
       this.logger.warn(
-        `[OpenRouterDetectFilter] Đang kích hoạt FALLBACK MOCK BOX: [150, 200, 800, 900]`,
+        `[OpenRouterDetectFilter] Đang kích hoạt FALLBACK MOCK BOX...`,
       );
       this.activateFallback(context, 'FALLBACK_MOCK');
     }
@@ -147,11 +160,64 @@ Ví dụ: [150, 200, 800, 900]. Chỉ trả về duy nhất mảng JSON đó tro
   }
 
   private activateFallback(context: PipelineContext, status: string): void {
+    const promptLower = (context.prompt || '').toLowerCase();
+    let defaultBox: [number, number, number, number] = [150, 200, 800, 900]; // Mặc định trung tâm
+
+    if (
+      promptLower.includes('right') ||
+      promptLower.includes('phải') ||
+      promptLower.includes(' letter c') ||
+      promptLower.includes(' chữ c') ||
+      promptLower.includes('curved c') ||
+      promptLower.includes('shape c')
+    ) {
+      // Nếu prompt đề cập đến bên phải hoặc chữ C, khoanh vùng nửa bên phải logo
+      defaultBox = [150, 450, 850, 900];
+      this.logger.log(
+        `[OpenRouterDetectFilter] Kích hoạt Smart Fallback LỆCH PHẢI (Chữ C / Right side): ${JSON.stringify(defaultBox)}`,
+      );
+    } else if (
+      promptLower.includes('left') ||
+      promptLower.includes('trái') ||
+      promptLower.includes(' letter x') ||
+      promptLower.includes(' chữ x')
+    ) {
+      // Nếu prompt đề cập đến bên trái hoặc chữ X, khoanh vùng nửa bên trái logo
+      defaultBox = [150, 100, 850, 550];
+      this.logger.log(
+        `[OpenRouterDetectFilter] Kích hoạt Smart Fallback LỆCH TRÁI (Chữ X / Left side): ${JSON.stringify(defaultBox)}`,
+      );
+    } else if (
+      promptLower.includes('top') ||
+      promptLower.includes('above') ||
+      promptLower.includes('trên')
+    ) {
+      // Lệch trên
+      defaultBox = [50, 150, 500, 850];
+      this.logger.log(
+        `[OpenRouterDetectFilter] Kích hoạt Smart Fallback LỆCH TRÊN (Top / Above): ${JSON.stringify(defaultBox)}`,
+      );
+    } else if (
+      promptLower.includes('bottom') ||
+      promptLower.includes('below') ||
+      promptLower.includes('dưới')
+    ) {
+      // Lệch dưới
+      defaultBox = [500, 150, 950, 850];
+      this.logger.log(
+        `[OpenRouterDetectFilter] Kích hoạt Smart Fallback LỆCH DƯỚI (Bottom / Below): ${JSON.stringify(defaultBox)}`,
+      );
+    } else {
+      this.logger.log(
+        `[OpenRouterDetectFilter] Kích hoạt Smart Fallback TRUNG TÂM (Center): ${JSON.stringify(defaultBox)}`,
+      );
+    }
+
     context.metadata[this.name] = {
       targetPrompt: context.prompt,
-      detectedBox: [150, 200, 800, 900], // Bounding box mặc định để xóa đối tượng trung tâm
+      detectedBox: defaultBox,
       status: status,
-      aiEngine: 'Mock-Gemini-2.0-Flash',
+      aiEngine: 'Mock-Gemini-2.0-Flash-Smart-Fallback',
     };
   }
 }

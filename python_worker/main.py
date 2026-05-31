@@ -2,7 +2,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # pyrefly: ignore [missing-import]
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 # pyrefly: ignore [missing-import]
 from fastapi.responses import Response
 import io
@@ -117,12 +117,16 @@ async def remove_background(image: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Lỗi tách nền nội bộ: {str(e)}")
 
 @app.post("/inpaint")
-async def inpaint(image: UploadFile = File(...), mask: UploadFile = File(...)):
+async def inpaint(
+    image: UploadFile = File(...),
+    mask: UploadFile = File(...),
+    maskBlur: int = Form(0)
+):
     """
     Nhận file ảnh gốc và file mặt nạ mask, thực hiện inpainting xóa đối tượng bằng LaMa AI (hoặc OpenCV Telea dự phòng).
     """
     try:
-        logger.info(f"[rembg-worker] Tiếp nhận yêu cầu Inpainting xóa đối tượng cho ảnh: {image.filename}")
+        logger.info(f"[rembg-worker] Tiếp nhận yêu cầu Inpainting xóa đối tượng cho ảnh: {image.filename} (maskBlur={maskBlur})")
 
         # 1. Đọc dữ liệu ảnh và mask từ upload stream
         image_bytes = await image.read()
@@ -147,6 +151,14 @@ async def inpaint(image: UploadFile = File(...), mask: UploadFile = File(...)):
         if mask_img.shape[:2] != img.shape[:2]:
             logger.info(f"[rembg-worker] Đang resize mask {mask_img.shape[:2]} khớp với size ảnh gốc {img.shape[:2]}...")
             mask_img = cv2.resize(mask_img, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
+
+        # 3.5. Áp dụng giãn nở mặt nạ (Dilation) nếu maskBlur > 0
+        if maskBlur > 0:
+            logger.info(f"[rembg-worker] Đang áp dụng giãn nở mask (maskBlur={maskBlur}px) để làm mịn viền...")
+            # Đảm bảo kích thước kernel là số lẻ
+            kernel_size = maskBlur if maskBlur % 2 == 1 else maskBlur + 1
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+            mask_img = cv2.dilate(mask_img, kernel, iterations=1)
 
         # 4. CHẠY MÔ HÌNH XÓA VẬT THỂ
         # ƯU TIÊN 1: Sử dụng LaMa AI chuyên nghiệp (nếu đã được cài đặt thành công)

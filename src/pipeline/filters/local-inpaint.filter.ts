@@ -131,6 +131,8 @@ export class LocalInpaintFilter implements IFilter {
       const imgBuffer = fs.readFileSync(processingInputPath);
       const maskBuffer = fs.readFileSync(maskPath);
 
+      const maskBlur = Number(context.options.maskBlur || 0);
+
       const formData = new FormData();
       formData.append('image', imgBuffer, {
         filename: path.basename(processingInputPath),
@@ -140,9 +142,10 @@ export class LocalInpaintFilter implements IFilter {
         filename: path.basename(maskPath),
         contentType: 'image/png',
       });
+      formData.append('maskBlur', String(maskBlur));
 
       this.logger.log(
-        `[LocalInpaintFilter] Đang gửi ảnh và mask sang Python Worker tại ${workerUrl}...`,
+        `[LocalInpaintFilter] Đang gửi ảnh và mask sang Python Worker (maskBlur=${maskBlur}) tại ${workerUrl}...`,
       );
 
       // Gọi API Python Worker để thực hiện inpaint xóa đối tượng
